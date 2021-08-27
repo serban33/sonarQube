@@ -24,10 +24,12 @@ namespace AbpCompanyName.AbpProjectName.Web.Startup
 {
     public class Startup
     {
+        private readonly IWebHostEnvironment _hostingEnvironment;
         private readonly IConfigurationRoot _appConfiguration;
 
         public Startup(IWebHostEnvironment env)
         {
+            _hostingEnvironment = env;
             _appConfiguration = env.GetAppConfiguration();
         }
 
@@ -35,18 +37,20 @@ namespace AbpCompanyName.AbpProjectName.Web.Startup
         {
             // MVC
             services.AddControllersWithViews(
-                options =>
+                    options =>
+                    {
+                        options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
+                        options.Filters.Add(new AbpAutoValidateAntiforgeryTokenAttribute());
+                    }
+                )
+                .AddRazorRuntimeCompilation()
+                .AddNewtonsoftJson(options =>
                 {
-                    options.Filters.Add(new AutoValidateAntiforgeryTokenAttribute());
-                    options.Filters.Add(new AbpAutoValidateAntiforgeryTokenAttribute());
-                }
-            ).AddNewtonsoftJson(options =>
-            {
-                options.SerializerSettings.ContractResolver = new AbpMvcContractResolver(IocManager.Instance)
-                {
-                    NamingStrategy = new CamelCaseNamingStrategy()
-                };
-            });
+                    options.SerializerSettings.ContractResolver = new AbpMvcContractResolver(IocManager.Instance)
+                    {
+                        NamingStrategy = new CamelCaseNamingStrategy()
+                    };
+                });
 
             IdentityRegistrar.Register(services);
             AuthConfigurer.Configure(services, _appConfiguration);
@@ -59,7 +63,11 @@ namespace AbpCompanyName.AbpProjectName.Web.Startup
             return services.AddAbp<AbpProjectNameWebMvcModule>(
                 // Configure Log4Net logging
                 options => options.IocManager.IocContainer.AddFacility<LoggingFacility>(
-                    f => f.UseAbpLog4Net().WithConfig("log4net.config")
+                    f => f.UseAbpLog4Net().WithConfig(
+                        _hostingEnvironment.IsDevelopment()
+                            ? "log4net.config"
+                            : "log4net.Production.config"
+                        )
                 )
             );
         }
@@ -82,10 +90,10 @@ namespace AbpCompanyName.AbpProjectName.Web.Startup
             app.UseRouting();
 
             app.UseAuthentication();
-            
+
             app.UseJwtTokenMiddleware();
-            
-            app.UseAuthorization();            
+
+            app.UseAuthorization();
 
             app.UseEndpoints(endpoints =>
             {

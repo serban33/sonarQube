@@ -1,6 +1,11 @@
-import { Component, Injector, OnInit, Inject, Optional } from '@angular/core';
-import { MatDialogRef, MAT_DIALOG_DATA } from '@angular/material';
-import { finalize } from 'rxjs/operators';
+import {
+  Component,
+  Injector,
+  OnInit,
+  Output,
+  EventEmitter
+} from '@angular/core';
+import { BsModalRef } from 'ngx-bootstrap/modal';
 import { AppComponentBase } from '@shared/app-component-base';
 import {
   TenantServiceProxy,
@@ -8,34 +13,26 @@ import {
 } from '@shared/service-proxies/service-proxies';
 
 @Component({
-  templateUrl: 'edit-tenant-dialog.component.html',
-  styles: [
-    `
-      mat-form-field {
-        width: 100%;
-      }
-      mat-checkbox {
-        padding-bottom: 5px;
-      }
-    `
-  ]
+  templateUrl: 'edit-tenant-dialog.component.html'
 })
 export class EditTenantDialogComponent extends AppComponentBase
   implements OnInit {
   saving = false;
   tenant: TenantDto = new TenantDto();
+  id: number;
+
+  @Output() onSave = new EventEmitter<any>();
 
   constructor(
     injector: Injector,
     public _tenantService: TenantServiceProxy,
-    private _dialogRef: MatDialogRef<EditTenantDialogComponent>,
-    @Optional() @Inject(MAT_DIALOG_DATA) private _id: number
+    public bsModalRef: BsModalRef
   ) {
     super(injector);
   }
 
   ngOnInit(): void {
-    this._tenantService.get(this._id).subscribe((result: TenantDto) => {
+    this._tenantService.get(this.id).subscribe((result: TenantDto) => {
       this.tenant = result;
     });
   }
@@ -43,20 +40,15 @@ export class EditTenantDialogComponent extends AppComponentBase
   save(): void {
     this.saving = true;
 
-    this._tenantService
-      .update(this.tenant)
-      .pipe(
-        finalize(() => {
-          this.saving = false;
-        })
-      )
-      .subscribe(() => {
+    this._tenantService.update(this.tenant).subscribe(
+      () => {
         this.notify.info(this.l('SavedSuccessfully'));
-        this.close(true);
-      });
-  }
-
-  close(result: any): void {
-    this._dialogRef.close(result);
+        this.bsModalRef.hide();
+        this.onSave.emit();
+      },
+      () => {
+        this.saving = false;
+      }
+    );
   }
 }
